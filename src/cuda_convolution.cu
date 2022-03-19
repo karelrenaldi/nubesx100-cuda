@@ -30,6 +30,26 @@ int ceil_division(int a, int b)
     return a / b + (a % b != 0);
 }
 
+int get_median(int *n, int length)
+{
+    int mid = length / 2;
+    if (length & 1)
+        return n[mid];
+
+    return (n[mid - 1] + n[mid]) / 2;
+}
+
+long get_floored_mean(int *n, int length)
+{
+    long sum = 0;
+    for (int i = 0; i < length; i++)
+    {
+        sum += n[i];
+    }
+
+    return sum / length;
+}
+
 __device__ void change_idx_1d_to_2d(int idx, int ncol, int *row, int *col)
 {
     *row = idx / ncol;
@@ -118,6 +138,134 @@ __global__ void find_range(
     d_range_output[output_idx] = curr_max - curr_min;
 }
 
+__device__ inline void merge_array(int *d_array, int *d_res, int left, int right, int batas)
+{
+    int i = left;
+    int j = right;
+    int k = left;
+
+    while (i < right && j < batas)
+    {
+        if (d_array[i] <= d_array[j])
+        {
+            d_res[k] = d_array[i];
+            i++;
+        }
+        else
+        {
+            d_res[k] = d_array[j];
+            j++;
+        }
+
+        k++;
+    }
+
+    while (i < right)
+    {
+        d_res[k] = d_array[i];
+        i++;
+        k++;
+    }
+
+    while (j < batas)
+    {
+        d_res[k] = d_array[j];
+        j++;
+        k++;
+    }
+
+    for (k = left; k < batas; k++)
+    {
+        d_array[k] = d_res[k];
+    }
+}
+
+__global__ static void merge_sort_thread(int *d_array, int *d_res, int size)
+{
+    extern __shared__ int shared[];
+
+    int i, k, batas, block_batas;
+    const unsigned int tid = threadIdx.x;
+    const unsigned int bid = blockIdx.x;
+
+    if (bid * BLOCK_SIZE + tid >= size)
+    {
+        return;
+    }
+
+    shared[bid * BLOCK_SIZE + tid] = d_array[bid * BLOCK_SIZE + tid];
+
+    __syncthreads();
+
+    k = 1;
+    block_batas = min((bid + 1) * BLOCK_SIZE, size);
+
+    while (k < block_batas)
+    {
+        i = bid * BLOCK_SIZE;
+
+        if (i + (tid * 2 + 1) * k <= block_batas)
+        {
+            batas = i + (tid + 1) * k * 2;
+
+            if (batas > block_batas)
+            {
+                batas = block_batas;
+            }
+
+            merge_array(d_array, d_res, i + tid * k * 2, i + (tid * 2 + 1) * k, batas);
+        }
+
+        k = k * 2;
+
+        __syncthreads();
+    }
+
+    d_array[bid * BLOCK_SIZE + tid] = shared[bid * BLOCK_SIZE + tid];
+}
+
+__global__ static void merge_sort_block(int *d_array, int *d_res, int size, int n_blocks)
+{
+    extern __shared__ int shared[];
+
+    int k, batas, block_batas;
+    const unsigned int tid = threadIdx.x;
+
+    if (tid >= n_blocks)
+    {
+        return;
+    }
+
+    for (int ii = 0; ii < size; ii++)
+    {
+        shared[ii] = d_array[ii];
+    }
+
+    k = min(BLOCK_SIZE, size);
+    block_batas = size;
+
+    __syncthreads();
+
+    while (k < block_batas)
+    {
+        if ((tid * 2 + 1) * k <= block_batas)
+        {
+            batas = (tid * 2 + 2) * k;
+
+            if (batas > block_batas)
+            {
+                batas = block_batas;
+            }
+
+            merge_array(d_array, d_res, tid * k * 2, (tid * 2 + 1) * k, batas);
+        }
+
+        k = k * 2;
+
+        __syncthreads();
+    }
+}
+
 int main()
 {
     int kernel_row, kernel_col;
@@ -153,6 +301,8 @@ int main()
     {
         printf("Failed to copy matrix to GPU\n");
     }
+
+    clock_t begin = clock();
 
     int conv_output_row = matrix_row - kernel_row + 1;
     int conv_output_col = matrix_col - kernel_col + 1;
@@ -204,7 +354,41 @@ int main()
 
     // Get range output from GPU.
     cudaMemcpy(range_output, d_range_output, range_output_size, cudaMemcpyDeviceToHost);
-    print_matrix(range_output, num_matrix);
+
+    // Sort range output
+    int *d_range_array;
+
+    cudaMalloc((void **)&d_range_array, num_matrix * sizeof(int));
+    cudaMemcpy(d_range_array, range_output, num_matrix * sizeof(int), cudaMemcpyHostToDevice);
+    cudaFree(d_range_output);
+    cudaMalloc((void **)&d_range_output, num_matrix * sizeof(int));
+    cudaMemcpy(d_range_output, range_output, num_matrix * sizeof(int), cudaMemcpyHostToDevice);
+
+    int passes = ceil_division(num_matrix, BLOCK_SIZE);
+    merge_sort_thread<<<passes, block_dim, num_matrix * sizeof(int)>>>(d_range_array, d_range_output, num_matrix);
+
+    int temp[num_matrix];
+    cudaMemcpy(temp, d_range_output, num_matrix * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(d_range_array, d_range_output, num_matrix * sizeof(int), cudaMemcpyDeviceToHost);
+
+    merge_sort_block<<<1, passes, num_matrix * 2 * sizeof(int)>>>(d_range_array, d_range_output, num_matrix, passes);
+
+    int *sort_output;
+    sort_output = (int *)malloc(range_output_size);
+    cudaMemcpy(sort_output, d_range_output, num_matrix * sizeof(int), cudaMemcpyDeviceToHost);
+
+    clock_t end = clock();
+
+    // Show final statistic results
+    int median = get_median(sort_output, num_matrix);
+    int floored_mean = get_floored_mean(sort_output, num_matrix);
+
+    printf("Min: %d\nMax: %d\nMedian: %d\nMean: %d\n",
+           sort_output[0],
+           sort_output[num_matrix - 1],
+           median,
+           floored_mean);
+    printf("%f", (double)(end - begin) / CLOCKS_PER_SEC);
 
     // Cleanup.
     cudaFree(d_kernel);
@@ -212,8 +396,10 @@ int main()
     cudaFree(d_output);
     cudaFree(d_conv_input);
     cudaFree(d_range_output);
+    cudaFree(d_range_array);
     free(kernel);
     free(matrix);
     free(conv_output);
     free(range_output);
+    free(sort_output);
 }
