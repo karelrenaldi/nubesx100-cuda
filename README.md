@@ -4,6 +4,14 @@ Matrix Convolution with CUDA
 
 ## Skema Paralelisasi CUDA
 
+### Perhitungan Konvolusi
+
+### Pencarian Range Data
+
+### Sorting
+
+Sorting dilakukan dalam maksimal dua tahap. Pada tahap pertama, merge sort dilakukan dengan jumlah thread sebesar BLOCK_DIM dan jumlah block sebesar ceiling num_matrix dibagi BLOCK_DIM. Setiap block menangani BLOCK_DIM elemen, dan satu thread menangani merge sort antara dua array. Setiap block mengalami maksimal log2(BLOCK_DIM) pass, dimana pass pertama menggunakan maksimal BLOCK_DIM thread untuk mengurut total BLOCK_DIM array berukuran 1 elemen. Pass kedua menggunakan maksimal BLOCK_DIM/2 thread untuk mengurut total BLOCK_DIM/2 array berukuran 2 elemen, dan seterusnya. Pada tahap kedua, merge sort dilakukan untuk menggabungkan hasil pengurutan setiap block. Tahap kedua hanya dilakukan jika jumlah block pada tahap pertama lebih dari satu. Pada tahap kedua, terdapat hanya satu block dengan jumlah thread maksimal sebesar jumlah block pada tahap pertama. Pada pass pertama, maksimal N_BLOCK thread menggabungkan dua array berukuran BLOCK_DIM, pada pass kedua, maksimal N_BLOCK/2 thread menggabungkan dua array berukuran BLOCK_DIM*2, dan seterusnya.
+
 ## Analisis Eksekusi Terbaik
 
 ## Perbandingan Hasil Eksekusi Program Secara Serial dan Paralel
