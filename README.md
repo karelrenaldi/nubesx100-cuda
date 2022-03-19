@@ -5,6 +5,7 @@ Matrix Convolution with CUDA
 ## Skema Paralelisasi CUDA
 
 ### Perhitungan Konvolusi
+Untuk perhitungan konvolusi pada tahap pertama akan dibuat terlebih dahulu grid 2 dimensi dan block 1 dimensi, dimana untuk grid x bernilai jumlah konvolui yang ada dibagi dengan nilai statik BLOCK_SIZE yaitu 1024 dan untuk grid sumbu y bernilai jumlah input matrix yang ada. Untuk block nya sendiri karena 1 dimensi maka untuk block sumbu x nya bernilai statik BLOCK_SIZE yaitu 1024. Secara garis besar skema yang dibuat adalah 1 thread akan menghitung hasil 1 konvolusi.Untuk fungsi utamanya sendiri, akan di passing melalui parameter berupa semua input matrix, kernel, dan output matrix beserta semua ukurannya, lalu didalam fungsinya akan diambil index output yang nantinya akan ditaruh hasil konvolusinya. Akan dilakukan perulangan sebanyak 2 for loop untuk melakukan loop pada kernelnya dan menghitung hasil konvolusinya. Sebagai informasi tambahan semua matrix input, kernel, output akan dibuat menjadi representasi 1 dimensi.
 
 ### Pencarian Range Data
 
