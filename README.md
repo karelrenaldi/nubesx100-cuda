@@ -42,7 +42,7 @@ b = 1 matriks, dengan ukuran kernel dan setiap matriks masing-masing 1x1 dan 100
 c = 1 matriks, dengan ukuran kernel dan setiap matriks masing-masing 100x100 dan 100x100.
 ```
 
-Untuk ketiga kasus tambahan yang ada, maka dapat diketahui bahwa kasus kedua memberikan waktu eksekusi yang paling cepat di antara ketiganya, disusul oleh kasus ketiga dengan selisih waktu yang tipis, dan diakhiri dengan kasus pertama dengan waktu yang lebih lama. Hal ini dikarenakan kasus pertama membuat 10000 blok pada sumbu y grid, sehingga overheadnya cukup tinggi. Kemudian kasus ketiga lebih lama daripada kasus ketiga karena pada setiap thread, kasus ketiga menangani 100*100 operasi, sementara kasus kedua hanya menangani 1.
+Untuk ketiga kasus tambahan yang ada, maka dapat diketahui bahwa kasus kedua memberikan waktu eksekusi yang paling cepat di antara ketiganya, disusul oleh kasus ketiga dengan selisih waktu yang tipis, dan diakhiri dengan kasus pertama dengan waktu yang lebih lama. Hal ini dikarenakan kasus pertama membuat 10000 blok pada sumbu y grid, sehingga overheadnya cukup tinggi. Kemudian kasus ketiga lebih lama daripada kasus kedua karena pada setiap thread, kasus ketiga menangani 100*100 operasi, sementara kasus kedua hanya menangani 1.
 
 ## Author
 
