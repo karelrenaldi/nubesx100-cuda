@@ -1,5 +1,3 @@
-% % writefile test.cu
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -8,8 +6,7 @@
 #define DATAMIN -1000
 #define BLOCK_SIZE 1024
 
-    void
-    input_matrix(int *matrix, int num_elements)
+void input_matrix(int *matrix, int num_elements)
 {
     for (int i = 0; i < num_elements; i++)
     {
@@ -224,14 +221,14 @@ __global__ static void merge_sort_thread(int *d_array, int *d_res, int size)
     d_array[bid * BLOCK_SIZE + tid] = shared[bid * BLOCK_SIZE + tid];
 }
 
-__global__ static void merge_sort_block(int *d_array, int *d_res, int size, int n_blocks)
+__global__ static void merge_sort_block(int *d_array, int *d_res, int size)
 {
     extern __shared__ int shared[];
 
     int k, batas, block_batas;
     const unsigned int tid = threadIdx.x;
 
-    if (tid >= n_blocks)
+    if (tid >= blockDim.x)
     {
         return;
     }
@@ -371,7 +368,7 @@ int main()
     cudaMemcpy(temp, d_range_output, num_matrix * sizeof(int), cudaMemcpyDeviceToHost);
     cudaMemcpy(d_range_array, d_range_output, num_matrix * sizeof(int), cudaMemcpyDeviceToHost);
 
-    merge_sort_block<<<1, passes, num_matrix * 2 * sizeof(int)>>>(d_range_array, d_range_output, num_matrix, passes);
+    merge_sort_block<<<1, passes, num_matrix * 2 * sizeof(int)>>>(d_range_array, d_range_output, num_matrix);
 
     int *sort_output;
     sort_output = (int *)malloc(range_output_size);
